@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Software — 2DS Computer Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+  @import url('https://fonts.cdnfonts.com/css/garet');
+  @import url('https://fonts.cdnfonts.com/css/aileron');
+
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f5f5;
+    --gray-100: #e8e8e8;
+    --gray-200: #d0d0d0;
+    --gray-300: #b0b0b0;
+    --gray-400: #888888;
+    --gray-500: #555555;
+    --gray-600: #333333;
+    --gray-700: #1e1e1e;
+    --font-title: 'Garet', 'DM Sans', sans-serif;
+    --font-body: 'Aileron', 'DM Sans', sans-serif;
+    --font-script: 'Dancing Script', cursive;
+    --section-pad: 120px 80px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--white); color: var(--black); font-family: var(--font-body); overflow-x: hidden; cursor: none; }
+
+  /* ─── CURSOR ─── */
+  .cursor { width: 12px; height: 12px; background: var(--white); border-radius: 50%; position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999; transform: translate(-50%,-50%); mix-blend-mode: difference; }
+  .cursor-ring { width: 36px; height: 36px; border: 1.5px solid var(--white); border-radius: 50%; position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9998; transition: transform 0.35s ease, opacity 0.2s; transform: translate(-50%,-50%); opacity: 0.6; mix-blend-mode: difference; }
+
+  /* ─── NAV ─── */
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 20px 60px; border-bottom: 1px solid rgba(0,0,0,0.08); background: rgba(245,245,245,0.88); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+  .nav-logo { font-family: var(--font-title); font-size: 13px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: var(--black); text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; list-style: none; }
+  .nav-links a { font-family: var(--font-body); font-size: 11px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gray-500); text-decoration: none; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--black); }
+  .nav-class { font-family: var(--font-body); font-size: 12px; color: var(--gray-400); letter-spacing: 0.08em; }
+
+  /* ─── HAMBURGER ─── */
+  .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; background: none; border: none; z-index: 200; }
+  .hamburger span { display: block; width: 24px; height: 2px; background: var(--black); border-radius: 2px; transition: transform 0.3s, opacity 0.3s; }
+  .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .hamburger.open span:nth-child(2) { opacity: 0; }
+  .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  .mobile-menu { display: none; position: fixed; inset: 0; background: var(--black); z-index: 150; flex-direction: column; justify-content: center; align-items: center; gap: 36px; opacity: 0; transition: opacity 0.3s; }
+  .mobile-menu.open { display: flex; opacity: 1; }
+  .mobile-menu a { font-family: var(--font-title); font-size: 32px; font-weight: 700; color: var(--white); text-decoration: none; letter-spacing: -0.02em; opacity: 0.45; transition: opacity 0.2s; }
+  .mobile-menu a:hover { opacity: 1; }
+  .mobile-menu-class { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gray-600); margin-top: 16px; }
+
+  /* ─── HERO ─── */
+  .hero { min-height: 100vh; background: var(--black); display: flex; flex-direction: column; justify-content: space-between; padding: 0 80px 72px; position: relative; overflow: hidden; }
+  .hero-bg-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px); background-size: 80px 80px; pointer-events: none; }
+  .hero-noise { position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.5; pointer-events: none; }
+
+  .hero-body { position: relative; z-index: 1; display: flex; flex-direction: column; justify-content: center; flex: 1; padding-top: 120px; padding-bottom: 40px; }
+  .hero-eyebrow { font-family: var(--font-body); font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--gray-500); margin-bottom: 40px; opacity: 0; animation: fadeUp 0.8s 0.2s forwards; }
+
+  /* TITOLO NORMALE */
+  .hero-title { font-family: var(--font-title); font-size: clamp(38px,5.5vw,64px); font-weight: 700; line-height: 1.1; color: var(--white); letter-spacing: -0.025em; opacity: 0; animation: fadeUp 0.9s 0.4s forwards; }
+  .hero-title-tag { display: block; font-family: var(--font-body); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gray-600); font-weight: 400; margin-bottom: 14px; }
+
+  .hero-rule { width: 56px; height: 1px; background: var(--gray-700); margin: 36px 0; opacity: 0; animation: fadeUp 0.8s 0.55s forwards; }
+  .hero-desc { font-family: var(--font-body); font-size: 14px; color: var(--gray-500); line-height: 1.8; max-width: 480px; opacity: 0; animation: fadeUp 0.8s 0.65s forwards; }
+
+  .hero-footer { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; opacity: 0; animation: fadeUp 0.8s 0.9s forwards; }
+  .hero-sub { font-family: var(--font-body); font-size: 10px; color: var(--gray-600); letter-spacing: 0.22em; text-transform: uppercase; margin-bottom: 6px; }
+  .hero-year { font-family: var(--font-title); font-size: 11px; color: var(--gray-700); letter-spacing: 0.12em; }
+  .hero-authors { text-align: right; }
+  .hero-authors p { font-family: var(--font-body); font-size: 12px; color: var(--gray-500); letter-spacing: 0.06em; line-height: 2; }
+  .hero-authors .highlight { color: var(--gray-300); }
+
+  .scroll-hint { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px; opacity: 0; animation: fadeIn 1s 1.4s forwards; }
+  .scroll-hint span { font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gray-600); }
+  .scroll-line { width: 1px; height: 44px; background: linear-gradient(to bottom,var(--gray-600),transparent); animation: scrollPulse 2s 1.5s infinite; }
+
+  /* ─── SECTIONS ─── */
+  section { padding: var(--section-pad); position: relative; overflow: hidden; }
+  section.dark  { background: var(--black); color: var(--white); }
+  section.light { background: var(--white); }
+  section.mid   { background: var(--gray-100); }
+  .section-label { display: inline-block; font-family: var(--font-body); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gray-400); border-top: 1px solid currentColor; padding-top: 10px; margin-bottom: 60px; }
+  .dark .section-label { color: var(--gray-600); }
+  .big-heading { font-family: var(--font-title); font-size: clamp(48px,7vw,100px); font-weight: 700; line-height: 1; letter-spacing: -0.03em; }
+  .big-heading.white { color: var(--white); }
+  hr.rule { border: none; border-top: 1px solid var(--gray-200); margin: 60px 0; }
+  .dark hr.rule { border-top-color: var(--gray-700); }
+
+  /* ─── WHAT IS SOFTWARE ─── */
+  .what-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 60px; }
+  .what-card { background: var(--gray-100); padding: 48px; position: relative; overflow: hidden; transition: background 0.3s; }
+  .what-card:hover { background: var(--gray-200); }
+  .what-card.black-card { background: var(--black); color: var(--white); }
+  .what-card.black-card:hover { background: var(--gray-700); }
+  .what-card-label { font-family: var(--font-body); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gray-400); margin-bottom: 24px; }
+  .what-card-title { font-family: var(--font-title); font-size: clamp(28px,4vw,56px); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .what-card-eq { font-family: var(--font-body); font-size: 14px; color: var(--gray-400); margin-top: 16px; }
+  .what-card.black-card .what-card-eq { color: var(--gray-500); }
+  .what-def { margin-top: 4px; background: var(--gray-700); color: var(--white); padding: 48px; grid-column: span 2; }
+  .what-def p { font-family: var(--font-body); font-size: clamp(15px,1.5vw,20px); line-height: 1.7; color: var(--gray-300); max-width: 700px; }
+  .what-def strong { color: var(--white); }
+
+  /* ─── TYPES ─── */
+  .types-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; margin-top: 60px; align-items: start; }
+  .type-block-title { font-family: var(--font-title); font-size: 22px; font-weight: 700; letter-spacing: -0.01em; padding-bottom: 20px; border-bottom: 2px solid var(--black); margin-bottom: 24px; }
+  .type-block-sub { font-size: 12px; color: var(--gray-500); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px; }
+  .type-block-desc { font-size: 15px; line-height: 1.75; color: var(--gray-600); }
+  .icon-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  .icon-pill { background: var(--white); border: 1px solid var(--gray-200); border-radius: 100px; padding: 8px 18px; font-size: 13px; color: var(--gray-600); display: flex; align-items: center; gap: 8px; transition: background 0.2s, border-color 0.2s, color 0.2s; }
+  .icon-pill:hover { background: var(--black); color: var(--white); border-color: var(--black); }
+
+  /* ─── ARCHITECTURE ─── */
+  .arch-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; margin-top: 60px; align-items: center; }
+  .arch-stack { display: flex; flex-direction: column; gap: 4px; }
+  .arch-layer { padding: 28px 36px; display: flex; align-items: center; gap: 20px; transition: transform 0.2s; cursor: default; }
+  .arch-layer:hover { transform: translateX(8px); }
+  .arch-layer.user { background: var(--gray-100); color: var(--black); }
+  .arch-layer.app  { background: var(--gray-200); color: var(--black); }
+  .arch-layer.os   { background: var(--gray-600); color: var(--white); }
+  .arch-layer.hw   { background: var(--black); color: var(--white); border: 1px solid var(--gray-700); }
+  .arch-layer-num { font-family: var(--font-title); font-size: 11px; font-weight: 700; letter-spacing: 0.15em; opacity: 0.4; min-width: 28px; }
+  .arch-layer-name { font-family: var(--font-title); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .arch-arrow { text-align: center; font-size: 20px; color: var(--gray-300); padding: 4px 0; }
+  .arch-text p { font-size: 15px; line-height: 1.8; color: var(--gray-400); margin-bottom: 20px; }
+
+  /* ─── OS DEFINITION ─── */
+  .os-def-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 60px; }
+  .os-flow { background: var(--gray-700); padding: 60px 48px; display: flex; flex-direction: column; gap: 0; }
+  .os-flow-item { padding: 24px 32px; background: rgba(255,255,255,0.06); border-radius: 4px; font-family: var(--font-title); font-size: 18px; font-weight: 700; color: var(--white); }
+  .os-flow-item + .os-flow-item { margin-top: 4px; }
+  .os-flow-arrow { text-align: center; color: var(--gray-500); font-size: 18px; padding: 8px 0; }
+  .os-def-text { background: var(--black); padding: 60px 48px; display: flex; flex-direction: column; justify-content: center; }
+  .os-def-text p { font-size: 15px; line-height: 1.85; color: var(--gray-400); margin-bottom: 16px; }
+  .os-def-text strong { color: var(--white); }
+
+  /* ─── FUNCTIONS ─── */
+  .functions-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 4px; margin-top: 60px; }
+  .func-card { padding: 40px 28px; background: var(--gray-100); text-align: center; transition: background 0.25s, color 0.25s; cursor: default; }
+  .func-card:hover { background: var(--black); color: var(--white); }
+  .func-icon { font-size: 32px; margin-bottom: 16px; }
+  .func-name { font-family: var(--font-title); font-size: 15px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 8px; }
+  .func-desc { font-size: 12px; color: var(--gray-500); line-height: 1.6; transition: color 0.25s; }
+  .func-card:hover .func-desc { color: var(--gray-400); }
+  .functions-note { margin-top: 40px; padding: 32px 40px; background: var(--gray-700); color: var(--gray-300); font-size: 15px; line-height: 1.75; }
+
+  /* ─── OS COMPARE ─── */
+  .os-compare-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; margin-top: 60px; }
+  .os-card { padding: 56px 40px; background: var(--gray-100); position: relative; overflow: hidden; transition: background 0.3s; cursor: default; }
+  .os-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .os-card.win::before { background: #0078D4; }
+  .os-card.mac::before { background: #888; }
+  .os-card.lnx::before { background: #E95420; }
+  .os-card:hover { background: var(--gray-200); }
+  .os-card-emoji { font-size: 40px; margin-bottom: 28px; }
+  .os-card-name { font-family: var(--font-title); font-size: 36px; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 8px; }
+  .os-card-tag { display: inline-block; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gray-400); border: 1px solid var(--gray-300); padding: 4px 12px; border-radius: 100px; margin-bottom: 24px; }
+  .os-card-desc { font-size: 14px; line-height: 1.75; color: var(--gray-600); }
+
+  /* ─── TIMELINE ─── */
+  .timeline-wrapper { margin-top: 80px; position: relative; padding-bottom: 60px; }
+  .timeline-line { position: absolute; top: 40px; left: 0; right: 0; height: 2px; background: var(--gray-700); }
+  .timeline-items { display: flex; justify-content: space-between; position: relative; }
+  .timeline-item { display: flex; flex-direction: column; align-items: center; gap: 16px; flex: 1; }
+  .timeline-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--gray-600); border: 3px solid var(--black); outline: 2px solid var(--gray-600); flex-shrink: 0; transition: transform 0.2s, background 0.2s; cursor: default; }
+  .timeline-item:hover .timeline-dot { transform: scale(1.4); background: var(--white); }
+  .timeline-above { text-align: center; padding-bottom: 12px; }
+  .timeline-name { font-family: var(--font-title); font-size: 14px; font-weight: 700; letter-spacing: -0.01em; color: var(--white); }
+  .timeline-year { font-size: 11px; color: var(--gray-500); letter-spacing: 0.1em; margin-top: 4px; }
+
+  /* ─── APP SOFTWARE ─── */
+  .appsoft-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; margin-top: 60px; }
+  .appsoft-cell { padding: 40px 32px; background: var(--gray-100); transition: background 0.3s, color 0.3s; cursor: default; }
+  .appsoft-cell:hover { background: var(--black); color: var(--white); }
+  .appsoft-cell:hover .appsoft-tag { color: var(--gray-500); border-color: var(--gray-600); }
+  .appsoft-cell:hover .appsoft-desc { color: var(--gray-400); }
+  .appsoft-icon { font-size: 28px; margin-bottom: 20px; }
+  .appsoft-name { font-family: var(--font-title); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; }
+  .appsoft-tag { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--gray-400); border: 1px solid var(--gray-200); display: inline-block; padding: 3px 10px; border-radius: 100px; margin-bottom: 16px; transition: color 0.3s, border-color 0.3s; }
+  .appsoft-desc { font-size: 13px; line-height: 1.7; color: var(--gray-500); transition: color 0.3s; }
+
+  /* ─── LICENCE ─── */
+  .licence-intro { margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+  .licence-intro-box { padding: 52px 48px; background: var(--gray-700); color: var(--white); }
+  .licence-intro-box p { font-size: 15px; line-height: 1.85; color: var(--gray-400); }
+  .licence-intro-box strong { color: var(--white); }
+  .licence-big { padding: 52px 48px; background: var(--black); color: var(--white); display: flex; flex-direction: column; justify-content: center; }
+  .licence-words { display: flex; flex-direction: column; gap: 4px; }
+  .licence-word { font-family: var(--font-title); font-size: 28px; font-weight: 700; letter-spacing: -0.01em; color: var(--gray-500); border-bottom: 1px solid var(--gray-700); padding-bottom: 4px; transition: color 0.2s; cursor: default; }
+  .licence-word:hover { color: var(--white); }
+  .licence-types-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 4px; margin-top: 4px; }
+  .lic-type-card { padding: 44px 32px; background: var(--gray-100); color: var(--black); position: relative; overflow: hidden; transition: background 0.3s; cursor: default; }
+  .lic-type-card:hover { background: var(--gray-200); }
+  .lic-top-bar { height: 4px; margin-bottom: 28px; border-radius: 2px; }
+  .lic-type-card.prop .lic-top-bar { background: #c0392b; }
+  .lic-type-card.free .lic-top-bar { background: #2980b9; }
+  .lic-type-card.open .lic-top-bar { background: #27ae60; }
+  .lic-type-card.copy .lic-top-bar { background: #e67e22; }
+  .lic-type-name { font-family: var(--font-title); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 16px; }
+  .lic-type-desc { font-size: 13px; line-height: 1.7; color: var(--gray-500); }
+  .lic-attrs { margin-top: 20px; display: flex; flex-direction: column; gap: 6px; }
+  .lic-attr { display: flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 0.05em; color: var(--gray-500); }
+  .lic-attr-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .lic-attr-dot.yes { background: #27ae60; }
+  .lic-attr-dot.no  { background: #c0392b; }
+
+  /* ─── OUTRO ─── */
+  .outro { background: var(--black); min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; padding: 100px 80px 80px; position: relative; overflow: hidden; }
+  .outro-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 30%,rgba(255,255,255,0.04) 0%,transparent 60%); }
+  .outro-top { position: relative; z-index: 1; }
+  .outro-quote { font-family: var(--font-script); font-size: clamp(22px,3vw,38px); color: var(--gray-500); line-height: 1.6; max-width: 680px; margin-top: 40px; }
+  .outro-quote em { color: var(--gray-300); font-style: normal; }
+  .outro-bottom { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; border-top: 1px solid var(--gray-700); padding-top: 48px; }
+  .team-label { font-family: var(--font-body); font-size: 10px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--gray-600); margin-bottom: 24px; }
+  .team-names { display: flex; flex-direction: column; gap: 10px; }
+  .team-name { font-family: var(--font-title); font-size: 20px; font-weight: 700; color: var(--white); letter-spacing: -0.01em; opacity: 0.85; transition: opacity 0.2s; cursor: default; }
+  .team-name:hover { opacity: 1; }
+  .class-info { text-align: right; }
+  .class-big { font-family: var(--font-title); font-size: clamp(48px,8vw,100px); font-weight: 700; color: var(--white); letter-spacing: -0.04em; line-height: 1; opacity: 0.12; }
+  .class-school { font-size: 13px; color: var(--gray-500); letter-spacing: 0.08em; margin-top: 12px; }
+  .class-subject { font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gray-600); margin-top: 6px; }
+
+  /* ─── SITOGRAFIA ─── */
+  .sitografia { background: var(--gray-100); padding: var(--section-pad); }
+  .sito-heading { font-family: var(--font-title); font-size: clamp(32px,5vw,60px); font-weight: 700; letter-spacing: -0.03em; color: var(--black); margin-bottom: 60px; line-height: 1; }
+  .sito-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 4px; }
+  .sito-item { background: var(--white); padding: 32px 28px; display: flex; flex-direction: column; gap: 10px; position: relative; overflow: hidden; text-decoration: none; color: inherit; transition: background 0.25s; }
+  .sito-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--gray-200); transition: background 0.25s; }
+  .sito-item:hover { background: var(--black); }
+  .sito-item:hover::before { background: var(--gray-600); }
+  .sito-item:hover .sito-source,
+  .sito-item:hover .sito-url,
+  .sito-item:hover .sito-arrow { color: var(--gray-500); }
+  .sito-item:hover .sito-title { color: var(--white); }
+  .sito-source { font-family: var(--font-body); font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gray-400); transition: color 0.25s; }
+  .sito-title { font-family: var(--font-title); font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: var(--black); line-height: 1.3; transition: color 0.25s; }
+  .sito-bottom { display: flex; align-items: flex-end; justify-content: space-between; margin-top: auto; padding-top: 20px; }
+  .sito-url { font-family: var(--font-body); font-size: 10px; color: var(--gray-400); letter-spacing: 0.02em; word-break: break-all; line-height: 1.5; transition: color 0.25s; }
+  .sito-arrow { font-size: 18px; color: var(--gray-300); flex-shrink: 0; margin-left: 12px; transition: color 0.25s, transform 0.2s; }
+  .sito-item:hover .sito-arrow { transform: translate(3px,-3px); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes scrollPulse { 0%,100% { opacity:.5; transform:scaleY(1); } 50% { opacity:1; transform:scaleY(1.2); } }
+
+  /* ─── REVEAL ─── */
+  .reveal { opacity:0; transform:translateY(30px); transition:opacity 0.7s ease,transform 0.7s ease; }
+  .reveal.visible { opacity:1; transform:translateY(0); }
+  .reveal-delay-1 { transition-delay:.1s; }
+  .reveal-delay-2 { transition-delay:.2s; }
+  .reveal-delay-3 { transition-delay:.3s; }
+  .reveal-delay-4 { transition-delay:.4s; }
+
+  /* ─── TABLET (max 900px) ─── */
+  @media (max-width:900px) {
+    :root { --section-pad:80px 28px; }
+    .cursor,.cursor-ring { display:none; }
+    body { cursor:auto; }
+    nav { padding:16px 24px; }
+    .nav-links { display:none; }
+    .hamburger { display:flex; }
+    .hero { padding:0 28px 64px; }
+    .hero-body { padding-top:100px; }
+    .scroll-hint { display:none; }
+    .what-grid,.types-cols,.arch-layout,.os-def-layout,.os-compare-grid,.appsoft-grid,.licence-intro { grid-template-columns:1fr; }
+    .what-def { grid-column:span 1; }
+    .functions-grid { grid-template-columns:repeat(2,1fr); }
+    .licence-types-grid { grid-template-columns:repeat(2,1fr); }
+    .sito-grid { grid-template-columns:repeat(2,1fr); }
+    .timeline-line { display:none; }
+    .timeline-items { flex-direction:column; gap:20px; padding-left:28px; border-left:2px solid var(--gray-700); }
+    .timeline-item { flex-direction:row; align-items:center; gap:20px; }
+    .timeline-above { text-align:left; padding-bottom:0; }
+    .timeline-dot { flex-shrink:0; margin-left:-36px; }
+    .outro { padding:80px 28px 60px; min-height:auto; }
+    .outro-bottom { grid-template-columns:1fr; gap:40px; }
+    .class-info { text-align:left; }
+    .class-big { font-size:64px; }
+    .what-card,.what-def { padding:32px 28px; }
+    .os-def-text,.os-flow { padding:40px 32px; }
+    .licence-intro-box,.licence-big { padding:40px 32px; }
+    .os-card { padding:40px 28px; }
+  }
+
+  /* ─── MOBILE (max 480px) ─── */
+  @media (max-width:480px) {
+    :root { --section-pad:64px 20px; }
+    nav { padding:14px 20px; }
+    .nav-class { display:none; }
+    .hero { padding:0 20px 56px; }
+    .hero-title { font-size:clamp(30px,9vw,42px); }
+    .big-heading { font-size:clamp(36px,10vw,56px); }
+    .functions-grid { grid-template-columns:1fr; }
+    .func-card { padding:28px 24px; }
+    .licence-types-grid { grid-template-columns:1fr; }
+    .appsoft-grid { grid-template-columns:1fr; }
+    .os-compare-grid { grid-template-columns:1fr; }
+    .sito-grid { grid-template-columns:1fr; }
+    .arch-layer { padding:20px 24px; }
+    .arch-layer-name { font-size:16px; }
+    .what-card-title { font-size:36px; }
+    .timeline-name { font-size:13px; }
+    .outro { padding:70px 20px 48px; }
+    .outro-quote { font-size:20px; }
+    .team-name { font-size:18px; }
+    .class-big { font-size:52px; }
+    .what-card,.what-def { padding:28px 20px; }
+    .os-def-text,.os-flow { padding:32px 24px; }
+    .licence-intro-box,.licence-big { padding:32px 24px; }
+    .os-card { padding:32px 20px; }
+    .lic-type-card { padding:32px 24px; }
+    .appsoft-cell { padding:28px 24px; }
+    .sito-item { padding:24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- MOBILE MENU — aggiunto Architecture -->
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#what"      onclick="closeMobileMenu()">Definition</a>
+  <a href="#types"     onclick="closeMobileMenu()">Types</a>
+  <a href="#arch"      onclick="closeMobileMenu()">Architecture</a>
+  <a href="#os"        onclick="closeMobileMenu()">OS</a>
+  <a href="#app"       onclick="closeMobileMenu()">Applications</a>
+  <a href="#licence"   onclick="closeMobileMenu()">Licences</a>
+  <a href="#team"      onclick="closeMobileMenu()">Team</a>
+  <a href="#sitografia" onclick="closeMobileMenu()">Sitografia</a>
+  <div class="mobile-menu-class">2DS · ITT Buonarroti</div>
+</div>
+
+<!-- NAV — aggiunto Architecture + Sitografia -->
+<nav>
+  <a href="#hero" class="nav-logo">Software</a>
+  <ul class="nav-links">
+    <li><a href="#what">Definition</a></li>
+    <li><a href="#types">Types</a></li>
+    <li><a href="#arch">Architecture</a></li>
+    <li><a href="#os">OS</a></li>
+    <li><a href="#app">Applications</a></li>
+    <li><a href="#licence">Licences</a></li>
+    <li><a href="#team">Team</a></li>
+    <li><a href="#sitografia">Sitografia</a></li>
+  </ul>
+  <div class="nav-class">2DS · ITT Buonarroti</div>
+  <button class="hamburger" id="hamburger" aria-label="Apri menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<!-- ════ HERO — titolo normale ════ -->
+<section class="hero" id="hero">
+  <div class="hero-bg-grid"></div>
+  <div class="hero-noise"></div>
+
+  <div class="hero-body">
+    <div class="hero-eyebrow">Computer Architecture — 2DS · ITT Buonarroti</div>
+    <h1 class="hero-title">
+      <span class="hero-title-tag">Topic</span>
+      Software
+    </h1>
+    <div class="hero-rule"></div>
+    <p class="hero-desc">
+      An overview of what software is, how it is categorised, how operating
+      systems work, and what licences govern the programs we use every day.
+    </p>
+  </div>
+
+  <div class="hero-footer">
+    <div>
+      <div class="hero-sub">Presentation</div>
+      <div class="hero-year">A.S. 2024 – 2025</div>
+    </div>
+    <div class="hero-authors">
+      <p class="highlight">Davide Paternoster</p>
+      <p class="highlight">Stefano Borz</p>
+      <p class="highlight">Giovanni Bertolini</p>
+      <p class="highlight">Matthias Dantone</p>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- 01 DEFINITION -->
+<section class="light" id="what">
+  <div class="section-label reveal">01 — Definition</div>
+  <h2 class="big-heading reveal reveal-delay-1">What Is<br>Software?</h2>
+  <div class="what-grid">
+    <div class="what-card reveal reveal-delay-2">
+      <div class="what-card-label">Physical</div>
+      <div class="what-card-title">Hardware</div>
+      <div class="what-card-eq">= physical components</div>
+    </div>
+    <div class="what-card black-card reveal reveal-delay-3">
+      <div class="what-card-label" style="color:var(--gray-600)">Logical</div>
+      <div class="what-card-title">Software</div>
+      <div class="what-card-eq">= instructions &amp; programs</div>
+    </div>
+    <div class="what-def reveal">
+      <p>Software is the set of <strong>instructions, data, and programs</strong> that tell a computer how to work. Unlike hardware, software is not physical: it is the <strong>logical part of a computer system</strong>, invisible yet essential for everything the machine does.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 02 TYPES -->
+<section class="mid" id="types">
+  <div class="section-label reveal">02 — Categories</div>
+  <h2 class="big-heading reveal reveal-delay-1">Types of<br>Software</h2>
+  <div class="types-cols">
+    <div class="type-block reveal reveal-delay-2">
+      <div class="type-block-title">System Software</div>
+      <div class="type-block-sub">Management &amp; Control</div>
+      <p class="type-block-desc">System software manages the computer's resources and provides the foundation on which application software runs. It operates in the background, coordinating hardware components and allocating resources efficiently.</p>
+      <div class="icon-row">
+        <span class="icon-pill">⚙️ Operating Systems</span>
+        <span class="icon-pill">🔧 Device Drivers</span>
+        <span class="icon-pill">🛡️ Security Software</span>
+        <span class="icon-pill">🖥️ Firmware</span>
+      </div>
+    </div>
+    <div class="type-block reveal reveal-delay-3">
+      <div class="type-block-title">Application Software</div>
+      <div class="type-block-sub">Tasks &amp; Everyday Use</div>
+      <p class="type-block-desc">Application software helps users perform specific tasks. It runs on top of the operating system and uses system resources to deliver functionality directly to the end user, from browsing the web to editing videos.</p>
+      <div class="icon-row">
+        <span class="icon-pill">💬 Discord</span>
+        <span class="icon-pill">📱 TikTok</span>
+        <span class="icon-pill">🟣 Twitch</span>
+        <span class="icon-pill">▶️ YouTube</span>
+        <span class="icon-pill">📸 Camera</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 ARCHITECTURE -->
+<section class="dark" id="arch">
+  <div class="section-label reveal">03 — Architecture</div>
+  <h2 class="big-heading white reveal reveal-delay-1">Software in<br>Computer Architecture</h2>
+  <div class="arch-layout">
+    <div class="arch-stack">
+      <div class="arch-layer user reveal reveal-delay-1"><span class="arch-layer-num">04</span><span class="arch-layer-name">User</span></div>
+      <div class="arch-arrow reveal">↕</div>
+      <div class="arch-layer app reveal reveal-delay-2"><span class="arch-layer-num">03</span><span class="arch-layer-name">Application Software</span></div>
+      <div class="arch-arrow reveal">↕</div>
+      <div class="arch-layer os reveal reveal-delay-3"><span class="arch-layer-num">02</span><span class="arch-layer-name">Operating System</span></div>
+      <div class="arch-arrow reveal">↕</div>
+      <div class="arch-layer hw reveal reveal-delay-4"><span class="arch-layer-num">01</span><span class="arch-layer-name">Hardware</span></div>
+    </div>
+    <div class="arch-text reveal reveal-delay-2">
+      <p>In computer architecture, <strong style="color:var(--white)">hardware is the base layer</strong> — the physical foundation everything else is built upon.</p>
+      <p>The <strong style="color:var(--white)">operating system</strong> sits directly above hardware, managing its resources and providing services to applications.</p>
+      <p>The <strong style="color:var(--white)">user interacts</strong> mainly with applications and the user interface provided by the system, rarely engaging directly with lower layers.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 04 OS DEFINITION -->
+<section class="light" id="os">
+  <div class="section-label reveal">04 — Operating System</div>
+  <h2 class="big-heading reveal reveal-delay-1">Operating System:<br>Definition</h2>
+  <div class="os-def-layout">
+    <div class="os-flow reveal reveal-delay-2">
+      <div class="os-flow-item">Hardware</div>
+      <div class="os-flow-arrow">↓</div>
+      <div class="os-flow-item">Operating System</div>
+      <div class="os-flow-arrow">↓</div>
+      <div class="os-flow-item">Applications</div>
+    </div>
+    <div class="os-def-text reveal reveal-delay-3">
+      <p>An <strong>operating system</strong> is system software that manages hardware resources and provides services for programs.</p>
+      <p>It is the <strong>bridge</strong> between the physical machine and the software used by the user — without it, applications would have no standardised way to access hardware.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 05 FUNCTIONS -->
+<section class="mid">
+  <div class="section-label reveal">05 — Functions</div>
+  <h2 class="big-heading reveal reveal-delay-1">Functions</h2>
+  <div class="functions-grid">
+    <div class="func-card reveal reveal-delay-1"><div class="func-icon">🧠</div><div class="func-name">CPU</div><div class="func-desc">Schedules and manages processor time across processes</div></div>
+    <div class="func-card reveal reveal-delay-2"><div class="func-icon">💾</div><div class="func-name">Memory</div><div class="func-desc">Allocates and frees RAM for running applications</div></div>
+    <div class="func-card reveal reveal-delay-3"><div class="func-icon">📁</div><div class="func-name">Files</div><div class="func-desc">Organises storage through file systems and directories</div></div>
+    <div class="func-card reveal reveal-delay-4"><div class="func-icon">🖨️</div><div class="func-name">Devices</div><div class="func-desc">Controls I/O devices via drivers</div></div>
+    <div class="func-card reveal reveal-delay-4"><div class="func-icon">🖥️</div><div class="func-name">User Interface</div><div class="func-desc">Provides GUI or CLI for user interaction</div></div>
+  </div>
+  <div class="functions-note reveal">Modern operating systems support <strong>multitasking</strong>, running multiple applications simultaneously by rapidly switching CPU time between processes — helping applications run efficiently without conflicts.</div>
+</section>
+
+<!-- 06 MAIN DESKTOP OS -->
+<section class="light">
+  <div class="section-label reveal">06 — Main Desktop OS</div>
+  <h2 class="big-heading reveal reveal-delay-1">Windows · macOS · Linux</h2>
+  <div class="os-compare-grid">
+    <div class="os-card win reveal reveal-delay-1"><div class="os-card-emoji">🪟</div><div class="os-card-name">Windows</div><div class="os-card-tag">compatibility</div><p class="os-card-desc">Widely used on personal computers worldwide. Appreciated for its broad hardware and software compatibility, making it the dominant choice for everyday desktop computing.</p></div>
+    <div class="os-card mac reveal reveal-delay-2"><div class="os-card-emoji">🍎</div><div class="os-card-name">macOS</div><div class="os-card-tag">Apple ecosystem</div><p class="os-card-desc">Designed exclusively for Apple hardware. Known for a smooth, integrated user experience and tight synergy with other Apple devices like iPhone and iPad.</p></div>
+    <div class="os-card lnx reveal reveal-delay-3"><div class="os-card-emoji">🐧</div><div class="os-card-name">Linux</div><div class="os-card-tag">open source</div><p class="os-card-desc">Highly customisable and open-source. Widely used in technical, server, and development environments. Powers the vast majority of the world's servers and infrastructure.</p></div>
+  </div>
+</section>
+
+<!-- 07 TIMELINE -->
+<section class="dark">
+  <div class="section-label reveal">07 — History</div>
+  <h2 class="big-heading white reveal reveal-delay-1">Operating Systems<br>Timeline</h2>
+  <div class="timeline-wrapper">
+    <div class="timeline-line"></div>
+    <div class="timeline-items">
+      <div class="timeline-item reveal reveal-delay-1"><div class="timeline-above"><div class="timeline-name">Early Systems</div><div class="timeline-year">1950s</div></div><div class="timeline-dot"></div></div>
+      <div class="timeline-item reveal reveal-delay-2"><div class="timeline-above"><div class="timeline-name">IBM OS/360</div><div class="timeline-year">1960s</div></div><div class="timeline-dot"></div></div>
+      <div class="timeline-item reveal reveal-delay-2"><div class="timeline-above"><div class="timeline-name">Unix</div><div class="timeline-year">1969</div></div><div class="timeline-dot"></div></div>
+      <div class="timeline-item reveal reveal-delay-3"><div class="timeline-above"><div class="timeline-name">Windows / macOS</div><div class="timeline-year">1980s</div></div><div class="timeline-dot"></div></div>
+      <div class="timeline-item reveal reveal-delay-3"><div class="timeline-above"><div class="timeline-name">Linux</div><div class="timeline-year">1991</div></div><div class="timeline-dot"></div></div>
+      <div class="timeline-item reveal reveal-delay-4"><div class="timeline-above"><div class="timeline-name">Android / iOS</div><div class="timeline-year">2000s</div></div><div class="timeline-dot"></div></div>
+    </div>
+  </div>
+  <p class="reveal" style="color:var(--gray-500);font-size:14px;line-height:1.8;max-width:700px;">Operating systems developed from early mainframe batch systems into modern desktop and mobile platforms over several decades. Each era introduced new paradigms: from batch processing, to multitasking GUIs, to open-source flexibility, to mobile touchscreens.</p>
+</section>
+
+<!-- 08 APPLICATION SOFTWARE -->
+<section class="light" id="app">
+  <div class="section-label reveal">08 — Applications</div>
+  <h2 class="big-heading reveal reveal-delay-1">Application<br>Software</h2>
+  <div style="margin-top:20px;max-width:600px;" class="reveal reveal-delay-2">
+    <p style="font-size:15px;line-height:1.8;color:var(--gray-500);">Application software helps users perform specific tasks such as writing, browsing, editing, or communicating. It works above the OS and depends on it for access to hardware and system services.</p>
+  </div>
+  <div class="appsoft-grid">
+    <div class="appsoft-cell reveal reveal-delay-1"><div class="appsoft-icon">📊</div><div class="appsoft-name">Productivity</div><div class="appsoft-tag">Word · Excel · PowerPoint</div><p class="appsoft-desc">Word processors, spreadsheets, and presentation tools for everyday work and study.</p></div>
+    <div class="appsoft-cell reveal reveal-delay-2"><div class="appsoft-icon">💻</div><div class="appsoft-name">Development</div><div class="appsoft-tag">VS Code · IDEs · Compilers</div><p class="appsoft-desc">Tools used to create, test, debug, and maintain other software programs.</p></div>
+    <div class="appsoft-cell reveal reveal-delay-3"><div class="appsoft-icon">💬</div><div class="appsoft-name">Communication</div><div class="appsoft-tag">WhatsApp · Gmail · Zoom</div><p class="appsoft-desc">Apps for messaging, email, and video conferencing across the globe.</p></div>
+    <div class="appsoft-cell reveal reveal-delay-1"><div class="appsoft-icon">🎨</div><div class="appsoft-name">Graphics</div><div class="appsoft-tag">Canva · Photoshop</div><p class="appsoft-desc">Design and image editing tools for creating visual content.</p></div>
+    <div class="appsoft-cell reveal reveal-delay-2"><div class="appsoft-icon">🗄️</div><div class="appsoft-name">Database</div><div class="appsoft-tag">MySQL · PostgreSQL</div><p class="appsoft-desc">Systems for storing, retrieving, and managing structured data.</p></div>
+    <div class="appsoft-cell reveal reveal-delay-3"><div class="appsoft-icon">🎬</div><div class="appsoft-name">Entertainment</div><div class="appsoft-tag">Netflix · Spotify · Games</div><p class="appsoft-desc">Media platforms and games that deliver content and recreation to users.</p></div>
+  </div>
+</section>
+
+<!-- 09 LICENCES -->
+<section class="dark" id="licence">
+  <div class="section-label reveal">09 — Licences</div>
+  <h2 class="big-heading white reveal reveal-delay-1">Software<br>Licences</h2>
+  <div class="licence-intro">
+    <div class="licence-intro-box reveal reveal-delay-2">
+      <p>A software licence is a <strong>legal agreement</strong> that defines how software can be used, copied, distributed, or modified. Licences define user rights, restrictions, and responsibilities — they protect both developers and users.</p>
+    </div>
+    <div class="licence-big reveal reveal-delay-3">
+      <div class="licence-words">
+        <div class="licence-word">USE</div>
+        <div class="licence-word">COPY</div>
+        <div class="licence-word">MODIFY</div>
+        <div class="licence-word">DISTRIBUTE</div>
+      </div>
+    </div>
+  </div>
+  <div class="licence-types-grid">
+    <div class="lic-type-card prop reveal reveal-delay-1"><div class="lic-top-bar"></div><div class="lic-type-name">Proprietary</div><p class="lic-type-desc">Keeps control of the software. Source code is hidden and access is tightly controlled by the owner.</p><div class="lic-attrs"><div class="lic-attr"><div class="lic-attr-dot no"></div> Source code hidden</div><div class="lic-attr"><div class="lic-attr-dot no"></div> Cannot modify</div><div class="lic-attr"><div class="lic-attr-dot no"></div> Cannot redistribute</div></div></div>
+    <div class="lic-type-card free reveal reveal-delay-2"><div class="lic-top-bar"></div><div class="lic-type-name">Freeware</div><p class="lic-type-desc">Generally free to use, but often does not allow users to modify the source code.</p><div class="lic-attrs"><div class="lic-attr"><div class="lic-attr-dot yes"></div> Free to use</div><div class="lic-attr"><div class="lic-attr-dot no"></div> Cannot modify</div><div class="lic-attr"><div class="lic-attr-dot no"></div> Cannot redistribute</div></div></div>
+    <div class="lic-type-card open reveal reveal-delay-3"><div class="lic-top-bar"></div><div class="lic-type-name">Open Source</div><p class="lic-type-desc">Allows users to inspect, use, modify, and share the code under specific conditions (e.g. MIT, Apache).</p><div class="lic-attrs"><div class="lic-attr"><div class="lic-attr-dot yes"></div> Source available</div><div class="lic-attr"><div class="lic-attr-dot yes"></div> Can modify</div><div class="lic-attr"><div class="lic-attr-dot yes"></div> Can redistribute</div></div></div>
+    <div class="lic-type-card copy reveal reveal-delay-4"><div class="lic-top-bar"></div><div class="lic-type-name">Copyleft</div><p class="lic-type-desc">Modified versions must keep the same licence conditions when redistributed (e.g. GPL). Share-alike required.</p><div class="lic-attrs"><div class="lic-attr"><div class="lic-attr-dot yes"></div> Source available</div><div class="lic-attr"><div class="lic-attr-dot yes"></div> Can modify</div><div class="lic-attr"><div class="lic-attr-dot yes"></div> Share-alike required</div></div></div>
+  </div>
+</section>
+
+<!-- OUTRO / TEAM -->
+<section class="outro" id="team">
+  <div class="outro-bg"></div>
+  <div class="outro-top">
+    <div class="section-label reveal" style="color:var(--gray-600);border-top-color:var(--gray-700)">Thank You</div>
+    <h2 style="font-family:var(--font-title);font-size:clamp(48px,8vw,110px);font-weight:700;color:var(--white);letter-spacing:-0.04em;line-height:0.9;" class="reveal reveal-delay-1">Thank You<br>for Your<br>Attention</h2>
+    <div class="outro-quote reveal reveal-delay-2">
+      <em>Software is the invisible engine behind every digital device.</em><br>
+      It connects users, applications, and hardware.<br>
+      Understanding software helps us understand how computers really work.
+    </div>
+  </div>
+  <div class="outro-bottom">
+    <div>
+      <div class="team-label">Presented by</div>
+      <div class="team-names">
+        <div class="team-name">Davide Paternoster</div>
+        <div class="team-name">Stefano Borz</div>
+        <div class="team-name">Giovanni Bertolini</div>
+        <div class="team-name">Matthias Dantone</div>
+      </div>
+    </div>
+    <div class="class-info">
+      <div class="class-big">2DS</div>
+      <div class="class-school">ITT Buonarroti</div>
+      <div class="class-subject">Computer Architecture Project</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     SITOGRAFIA
+     ════════════════════════════════════════════════ -->
+<section class="sitografia" id="sitografia">
+  <div class="section-label reveal">References</div>
+  <h2 class="sito-heading reveal reveal-delay-1">Sitografia</h2>
+
+  <div class="sito-grid">
+
+    <a class="sito-item reveal reveal-delay-1" href="https://www.techtarget.com/searchapparchitecture/definition/software" target="_blank" rel="noopener">
+      <div class="sito-source">TechTarget</div>
+      <div class="sito-title">What Is Software?</div>
+      <div class="sito-bottom">
+        <span class="sito-url">techtarget.com · searchapparchitecture/definition/software</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-2" href="https://biz.libretexts.org/Courses/Canada_College/Management_Information_Systems_Remix/03:_Software/3.02:_Types_of_Software" target="_blank" rel="noopener">
+      <div class="sito-source">Business LibreTexts</div>
+      <div class="sito-title">Types of Software</div>
+      <div class="sito-bottom">
+        <span class="sito-url">biz.libretexts.org · 3.02: Types of Software</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-3" href="https://www.ibm.com/think/topics/operating-systems" target="_blank" rel="noopener">
+      <div class="sito-source">IBM</div>
+      <div class="sito-title">What is an Operating System?</div>
+      <div class="sito-bottom">
+        <span class="sito-url">ibm.com/think/topics/operating-systems</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-1" href="https://www.britannica.com/technology/operating-system" target="_blank" rel="noopener">
+      <div class="sito-source">Britannica</div>
+      <div class="sito-title">Operating System</div>
+      <div class="sito-bottom">
+        <span class="sito-url">britannica.com/technology/operating-system</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-2" href="https://oppimateriaalit.jamk.fi/en/ict-valmiudet/basics_of_ict/os_and_software/" target="_blank" rel="noopener">
+      <div class="sito-source">JAMK</div>
+      <div class="sito-title">Operating Systems and Software</div>
+      <div class="sito-bottom">
+        <span class="sito-url">oppimateriaalit.jamk.fi · os_and_software</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-3" href="https://www.blackduck.com/blog/5-types-of-software-licenses-you-need-to-understand.html" target="_blank" rel="noopener">
+      <div class="sito-source">Black Duck</div>
+      <div class="sito-title">Five Types of Software Licenses You Need to Understand</div>
+      <div class="sito-bottom">
+        <span class="sito-url">blackduck.com/blog/5-types-of-software-licenses</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-1" href="https://finquery.com/blog/software-licenses-explained-examples-management/" target="_blank" rel="noopener">
+      <div class="sito-source">FinQuery</div>
+      <div class="sito-title">Software License Types, Examples, Management &amp; More</div>
+      <div class="sito-bottom">
+        <span class="sito-url">finquery.com/blog/software-licenses-explained</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-2" href="https://opensource.org/licenses" target="_blank" rel="noopener">
+      <div class="sito-source">Open Source Initiative</div>
+      <div class="sito-title">OSI Approved Licenses</div>
+      <div class="sito-bottom">
+        <span class="sito-url">opensource.org/licenses</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-3" href="https://en.wikipedia.org/wiki/Software_license" target="_blank" rel="noopener">
+      <div class="sito-source">Wikipedia</div>
+      <div class="sito-title">Software License</div>
+      <div class="sito-bottom">
+        <span class="sito-url">en.wikipedia.org/wiki/Software_license</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-1" href="https://en.wikipedia.org/wiki/Open-source_license" target="_blank" rel="noopener">
+      <div class="sito-source">Wikipedia</div>
+      <div class="sito-title">Open-source License</div>
+      <div class="sito-bottom">
+        <span class="sito-url">en.wikipedia.org/wiki/Open-source_license</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-2" href="https://en.wikipedia.org/wiki/Freeware" target="_blank" rel="noopener">
+      <div class="sito-source">Wikipedia</div>
+      <div class="sito-title">Freeware</div>
+      <div class="sito-bottom">
+        <span class="sito-url">en.wikipedia.org/wiki/Freeware</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+    <a class="sito-item reveal reveal-delay-3" href="https://en.wikipedia.org/wiki/Copyleft" target="_blank" rel="noopener">
+      <div class="sito-source">Wikipedia</div>
+      <div class="sito-title">Copyleft</div>
+      <div class="sito-bottom">
+        <span class="sito-url">en.wikipedia.org/wiki/Copyleft</span>
+        <span class="sito-arrow">↗</span>
+      </div>
+    </a>
+
+  </div>
+</section>
+
+<script>
+  /* CURSOR */
+  const cursor = document.getElementById('cursor');
+  const ring   = document.getElementById('cursorRing');
+  let mx=0,my=0,rx=0,ry=0;
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+  (function anim(){
+    cursor.style.left=mx+'px'; cursor.style.top=my+'px';
+    rx+=(mx-rx)*.12; ry+=(my-ry)*.12;
+    ring.style.left=rx+'px'; ring.style.top=ry+'px';
+    requestAnimationFrame(anim);
+  })();
+
+  /* SCROLL REVEAL */
+  const obs=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible');});
+  },{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+  /* NAV border on scroll */
+  const nav=document.querySelector('nav');
+  window.addEventListener('scroll',()=>{
+    nav.style.borderBottomColor=window.scrollY>60?'rgba(0,0,0,0.14)':'rgba(0,0,0,0.08)';
+  });
+
+  /* HAMBURGER */
+  const hamburger=document.getElementById('hamburger');
+  const mobileMenu=document.getElementById('mobileMenu');
+  hamburger.addEventListener('click',()=>{
+    const open=mobileMenu.classList.toggle('open');
+    hamburger.classList.toggle('open',open);
+    hamburger.querySelectorAll('span').forEach(s=>s.style.background=open?'#f5f5f5':'#0a0a0a');
+    document.body.style.overflow=open?'hidden':'';
+  });
+  function closeMobileMenu(){
+    mobileMenu.classList.remove('open');
+    hamburger.classList.remove('open');
+    hamburger.querySelectorAll('span').forEach(s=>s.style.background='#0a0a0a');
+    document.body.style.overflow='';
+  }
+
+  /* Touch: nascondi cursore custom */
+  if('ontouchstart' in window){
+    cursor.style.display='none';
+    ring.style.display='none';
+    document.body.style.cursor='auto';
+  }
+</script>
+</body>
+</html>
